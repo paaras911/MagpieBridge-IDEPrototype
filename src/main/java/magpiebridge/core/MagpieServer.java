@@ -6,9 +6,12 @@ package magpiebridge.core;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.ibm.wala.cast.tree.CAstSourcePositionMap.Position;
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.MalformedURLException;
 import java.net.ServerSocket;
@@ -18,6 +21,11 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -39,6 +47,9 @@ import magpiebridge.core.analysis.configuration.ConfigurationAction;
 import magpiebridge.core.analysis.configuration.ConfigurationOption;
 import magpiebridge.core.analysis.configuration.MagpieHttpServer;
 import magpiebridge.core.analysis.configuration.OptionType;
+import magpiebridge.core.analysis.webApp.WebAnalysisResult;
+import magpiebridge.core.analysis.webApp.WebAppData;
+import magpiebridge.core.analysis.webApp.WebAppHttpServer;
 import magpiebridge.file.SourceFileManager;
 import magpiebridge.util.ExceptionLogger;
 import magpiebridge.util.MagpieMessageLogger;
@@ -146,6 +157,18 @@ public class MagpieServer implements AnalysisConsumer, LanguageServer, LanguageC
   protected MagpieMessageLogger logger;
 
   private String httpserverUrl;
+
+  WebAppHttpServer webAppHttpServer;
+
+  /** The starting time of analysis. */
+  private ZonedDateTime startTime;
+
+  /** The ending time of analysis. */
+  private ZonedDateTime endTime;
+
+  static Clock clock = Clock.system(ZoneId.of("Europe/Paris"));
+
+  private Integer changesCount;
 
   /**
    * Instantiates a new MagpieServer using default {@link MagpieTextDocumentService} and {@link
@@ -608,6 +631,20 @@ public class MagpieServer implements AnalysisConsumer, LanguageServer, LanguageC
     if (a != null) {
       this.forwardMessageToClient(
           new MessageParams(MessageType.Info, a.source() + " started analyzing the code."));
+
+      // get start time for analysis
+      startTime = getTime();
+      this.webAppHttpServer = new WebAppHttpServer();
+      final String url = webAppHttpServer.createAndStartLocalHttpServer(this);
+
+      try {
+        OpenURLCommand.showHTMLinClientOrBroswer(this, (MagpieClient) client, url);
+      } catch (URISyntaxException e) {
+        e.printStackTrace();
+      } catch (IOException e) {
+        e.printStackTrace();
+      }
+
       a.analyze(fileManager.getSourceFileModules().values(), this, rerun);
       this.forwardMessageToClient(
           new MessageParams(MessageType.Info, a.source() + " finished analyzing the code."));
@@ -694,6 +731,18 @@ public class MagpieServer implements AnalysisConsumer, LanguageServer, LanguageC
       pdp.setDiagnostics(diagList);
       pdp.setUri(entry.getKey());
       client.publishDiagnostics(pdp);
+    }
+
+    endTime = getTime();
+    WebAppData webAppdata = convertToWebData(results);
+
+    final String updatedUrl = webAppHttpServer.updateHttpServer(this, true, webAppdata);
+    try {
+       OpenURLCommand.showHTMLinClientOrBroswer(this, (MagpieClient) client, updatedUrl);
+    } catch (URISyntaxException e) {
+      e.printStackTrace();
+    } catch (IOException e) {
+      e.printStackTrace();
     }
   }
 
@@ -1019,5 +1068,141 @@ public class MagpieServer implements AnalysisConsumer, LanguageServer, LanguageC
    */
   public void addHttpServer(String url) {
     httpserverUrl = url;
+  }
+
+  /** This method converts the analysis results and project data to {@link WebAppData}. */
+  private WebAppData convertToWebData(Collection<AnalysisResult> results) {
+    Integer lowCount = 0;
+    Integer highCount = 0;
+    changesCount = 0;
+
+    Collection<WebAnalysisResult> res = new ArrayList<WebAnalysisResult>();
+    for (AnalysisResult result : results) {
+      WebAnalysisResult singleResult = null;
+      String changesStatus = checkForChanges(result);
+      if (result.severity().toString() == "Error") {
+        highCount = highCount + 1;
+
+        singleResult =
+            new WebAnalysisResult(
+                result.position(),
+                result.kind(),
+                result.toString(true),
+                result.severity(),
+                result.repair(),
+                result.code(),
+                changesStatus,
+                result.related(),
+                "High");
+
+      } else if (result.severity().toString() == "Warning"
+          | result.severity().toString() == "Information"
+          | result.severity().toString() == "Hint") {
+        singleResult =
+            new WebAnalysisResult(
+                result.position(),
+                result.kind(),
+                result.toString(false),
+                result.severity(),
+                result.repair(),
+                result.code(),
+                changesStatus,
+                result.related(),
+                "Low");
+
+        lowCount += 1;
+      }
+      res.add(singleResult);
+    }
+
+    WebAppData webAppData =
+        new WebAppData(
+            " ",
+            " ",
+            startTime.getHour() + ":" + startTime.getMinute() + ":" + startTime.getSecond(),
+            endTime.getHour() + ":" + endTime.getMinute() + ":" + endTime.getSecond(),
+            getDuration(),
+            "Test",
+            "#18272",
+            lowCount,
+            highCount,
+            changesCount,
+            res);
+    return webAppData;
+  }
+
+  /* Get the current time	 */
+  private ZonedDateTime getTime() {
+    Instant instant = clock.instant();
+    ZonedDateTime time = instant.atZone(clock.getZone());
+    return time;
+  }
+
+  /*Get the duration of the analysis*/
+
+  private String getDuration() {
+    if (Duration.between(startTime, endTime).toMinutes() > 0)
+      return (Duration.between(startTime, endTime).toMinutes()
+          + " minutes"
+          + " "
+          + +(Duration.between(endTime, endTime).getSeconds() % 60)
+          + " seconds");
+    else return (Duration.between(startTime, endTime).getSeconds() + " seconds");
+  }
+
+  /*Check for changes in the analyzed error code and current code*/
+
+  private String checkForChanges(AnalysisResult result) {
+    BufferedReader buffer = null;
+    String status = null;
+    try {
+      String filePath = result.position().getURL().getPath();
+      InputStreamReader inputStreamReader =
+          new InputStreamReader(new FileInputStream(new File(filePath)));
+
+      buffer = new BufferedReader(inputStreamReader);
+      int i = 1;
+
+      String lineContent;
+      StringBuffer searchedContent = new StringBuffer();
+      if (buffer != null) {
+        while ((lineContent = buffer.readLine()) != null) {
+
+          if (i >= result.position().getFirstLine() && i <= result.position().getLastLine()) {
+            searchedContent.append(lineContent);
+          }
+          i++;
+        }
+      }
+      // Exact match
+      if (result.code().contentEquals(searchedContent.toString().replaceFirst("^\\s*", ""))) {
+        status = null;
+      } else {
+
+        // Semantic match
+        changesCount = changesCount + 1;
+        String nonSemanticLineContent;
+        StringBuffer nonSemanticSearchedContent = new StringBuffer();
+        BufferedReader anotherBuffer =
+            new BufferedReader(new InputStreamReader(new FileInputStream(new File(filePath))));
+        if (anotherBuffer != null) {
+          while ((nonSemanticLineContent = anotherBuffer.readLine()) != null) {
+            nonSemanticSearchedContent.append(nonSemanticLineContent);
+          }
+        }
+
+        if (nonSemanticSearchedContent.toString().contains(result.code())) {
+          status = "false";
+        } else {
+          status = "true";
+        }
+      }
+
+      buffer.close();
+
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+    return status;
   }
 }
