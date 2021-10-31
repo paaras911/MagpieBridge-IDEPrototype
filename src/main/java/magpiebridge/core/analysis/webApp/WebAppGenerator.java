@@ -87,7 +87,7 @@ public class WebAppGenerator {
                     + "  left: 0;"
                     + "  width: 100%;}\n"
                     + "	 .sts{display: block; padding-top: 2rem;}\n"
-                    + "  .sts-block{margin-top: 50%; margin-left: 3rem;}\n"
+                    + "  .sts-block{margin-left: 3rem;}\n"
                     + "  .txt-clr{ color:black !important;}\n"
                     + "  #warn, #errs, #changes{font-size:xx-large !important;}\n"
                     + "  body{background-color:lightgray !important;}\n"
@@ -143,8 +143,23 @@ public class WebAppGenerator {
                     + "  border: 2px solid #EF7738!important;\r\n"
                     + "  margin-right: 0.7rem;\r\n"
                     + "  border-radius: 8px;}\n"
-                    + ".dashed{ color:green !important;"
-                    + " text-decoration:   line-through; }"))
+                    + ".dashed{ color:green !important;\r\n"
+                    + " text-decoration:   line-through; }\n"
+                    + " .img-container{\r\n"
+                    + "  display:inline;"
+                    + "}\r\n"
+                    + "\r\n"
+                    + ".img-container span {\r\n"
+                    + "  padding-left: 20px;\r\n"
+                    + "}\r\n"
+                    + "\r\n"
+                    + ".img-container .color-box{\r\n"
+                    + "  width: 10px;\r\n"
+                    + "  height: 10px;\r\n"
+                    + "  display: inline-block;\r\n"
+                    + "  \r\n"
+                    + " \r\n"
+                    + "}"))
         .with(generateScript());
   }
 
@@ -270,7 +285,20 @@ public class WebAppGenerator {
                                                                 "filter('filter-changes')"),
                                                         span("Changed code")))
                                                 .withClass("dropdown-content filter"))
-                                        .withClass("dropdown"))
+                                        .withClass("dropdown"),
+                                    div(
+                                        div(
+                                                span("Semantic Changes"),
+                                                div()
+                                                    .withClass("color-box")
+                                                    .withStyle("background-color: #EF7738;"))
+                                            .withClass("img-container"),
+                                        div(
+                                                span("Non-semantic Changes"),
+                                                div()
+                                                    .withClass("color-box")
+                                                    .withStyle("background-color: #28a745;"))
+                                            .withClass("img-container")))
                                 .withClass("card-header"),
                             div(table(
                                         thead(

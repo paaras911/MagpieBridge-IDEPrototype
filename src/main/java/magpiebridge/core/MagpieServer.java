@@ -738,7 +738,7 @@ public class MagpieServer implements AnalysisConsumer, LanguageServer, LanguageC
 
     final String updatedUrl = webAppHttpServer.updateHttpServer(this, true, webAppdata);
     try {
-       OpenURLCommand.showHTMLinClientOrBroswer(this, (MagpieClient) client, updatedUrl);
+      OpenURLCommand.showHTMLinClientOrBroswer(this, (MagpieClient) client, updatedUrl);
     } catch (URISyntaxException e) {
       e.printStackTrace();
     } catch (IOException e) {

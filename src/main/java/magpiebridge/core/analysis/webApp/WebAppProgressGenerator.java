@@ -73,12 +73,27 @@ public class WebAppProgressGenerator {
                     + ".dropdown:hover .dropdown-content {display: block;}\n"
                     + ".dropdown-content a {color: black; padding: 12px 16px;  text-decoration: none; display: block;}\n"
                     + "	 .sts{display: block; padding-top: 2rem;}\n"
-                    + "  .sts-block{margin-top: 50%; margin-left: 3rem;}\n"
+                    + "  .sts-block{margin-left: 3rem;}\n"
                     + "  .txt-clr{ color:black !important;}\n"
                     + "  #warn, #errs, #changes{font-size:xx-large !important;}\n"
                     + "  body{background-color:lightgray !important;}\n"
                     + "  #change-warnings{ margin-top: 1rem;}\n"
-                    + "  .errs, .warns{width: max-content;	}\n"))
+                    + "  .errs, .warns{width: max-content;	}\n"
+                    + "   .img-container{\r\n"
+                    + "  display:inline;"
+                    + "}\r\n"
+                    + "\r\n"
+                    + ".img-container span {\r\n"
+                    + "  padding-left: 20px;\r\n"
+                    + "}\r\n"
+                    + "\r\n"
+                    + ".img-container .color-box{\r\n"
+                    + "  width: 10px;\r\n"
+                    + "  height: 10px;\r\n"
+                    + "  display: inline-block;\r\n"
+                    + "  \r\n"
+                    + " \r\n"
+                    + "}"))
         .with(generateScript());
   }
 
@@ -162,7 +177,20 @@ public class WebAppProgressGenerator {
                                                             .withId("filter-changes"),
                                                         span("Changed code")))
                                                 .withClass("dropdown-content filter"))
-                                        .withClass("dropdown"))
+                                        .withClass("dropdown"),
+                                    div(
+                                        div(
+                                                span("Semantic Changes"),
+                                                div()
+                                                    .withClass("color-box")
+                                                    .withStyle("background-color: #EF7738;"))
+                                            .withClass("img-container"),
+                                        div(
+                                                span("Non-semantic Changes"),
+                                                div()
+                                                    .withClass("color-box")
+                                                    .withStyle("background-color: #28a745;"))
+                                            .withClass("img-container")))
                                 .withClass("card-header"),
                             div(table(
                                         thead(
@@ -187,7 +215,7 @@ public class WebAppProgressGenerator {
     String scriptCode =
         "window.onload = function onLoad() {\n"
             + "	var bar = new ProgressBar.Circle(container, {\n"
-            + "	    color: '##6590FF',\n"
+            + "	    color: '#6590FF',\n"
             + "	    strokeWidth: 4,\n"
             + "	    trailWidth: 1,\n"
             + "	    easing: 'easeInOut',\n"
